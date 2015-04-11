@@ -1,0 +1,88 @@
+'use strict';
+
+var loader = require('./folder-loader.js');
+var isArray = require('lodash').isArray;
+var each = require('lodash').each;
+
+var plugins = {};
+
+var get = function (name) {
+  if (!plugins[name]) {
+    throw new Error('No plugin defined for: ' + name);
+  }
+
+  return plugins[name];
+};
+
+var load = function (module) {
+  module.deps = module.deps || [];
+
+  var args = [];
+  var i;
+
+  var deferredDependency = function (deferred) {
+    return function () {
+      return get(deferred);
+    };
+  };
+
+  var dep;
+  for (i = 0; i < module.deps.length; i += 1) {
+    dep = module.deps[i];
+
+    args.push(deferredDependency(dep));
+  }
+
+  if (isArray(plugins[module.type])) {
+    plugins[module.type].push(module.func.apply(this, args));
+  } else {
+    plugins[module.type] = module.func.apply(this, args);
+  }
+};
+
+var loadPath = function (path) {
+  loader.loadFromPath(path, load);
+};
+
+var set = function (name, thing) {
+  plugins[name] = thing;
+};
+
+var define = function (type, deps, func) {
+  if (deps instanceof Function) {
+    return {
+      type: type,
+      func: deps
+    };
+  } else {
+    return {
+      type: type,
+      deps: deps,
+      func: func
+    };
+  }
+};
+
+load({
+  type: 'DefinePlugin',
+  func: function () {
+    return function (type, deps, func) {
+      load(define(type, deps, func));
+    };
+  }
+});
+
+module.exports = {
+  configure: function(arrays) {
+    each(arrays, function(name) {
+      plugins[name] = [];
+    });
+
+    return {
+      load: load,
+      loadPath: loadPath,
+      set: set,
+      get: get
+    };
+  }
+};
