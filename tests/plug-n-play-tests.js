@@ -129,6 +129,29 @@ describe('the plugin manager', function() {
 
 			expect(true).toBe(false);
 		});
+
+		it('should raise an exception if any arguments are passed into a dependency', function () {
+			try {
+				var loadedFirstRequiresSecondDefine = {
+					type: 'NowNowNow',
+					func: function() {
+						return function (value) {
+							return value + 1;
+						};
+					}
+				};
+
+				pluginManager.load(loadedFirstRequiresSecondDefine);
+				pluginManager.load(createAModuleToExecuteTest(['NowNowNow'], function(nowNowNow) {
+					nowNowNow(1);
+				}));
+			} catch (e) {
+				expect(true).toBe(true);
+				return;
+			}
+
+			expect(true).toBe(false);
+		});
 	});
 
 	describe('getting a module', function() {

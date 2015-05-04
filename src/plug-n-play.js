@@ -22,6 +22,10 @@ var load = function (module) {
 
   var deferredDependency = function (deferred) {
     return function () {
+      if (arguments.length > 0) {
+        throw new Error('Incorrect use of deferred dependency. You\'re probably going blah(p1, p2) when you should be going blah()(p1, p2).');
+      }
+
       return get(deferred);
     };
   };
