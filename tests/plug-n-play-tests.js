@@ -40,7 +40,7 @@ describe('the plugin manager', function() {
 
 	describe('using a module', function() {
 		beforeEach(function () {
-			pluginManager = require('../src/plug-n-play').configure(['InputMode']);
+			pluginManager = require('../src/plug-n-play').configure(['InputMode'], 'HasDefaultMode');
 		});
 
 		it('should have it\'s dependencies injected as parameters', function() {
@@ -60,7 +60,7 @@ describe('the plugin manager', function() {
 			}));
 		});
 
-		it('should all multiple plugins for specific plugin-types', function() {
+		it('should allow multiple plugins for specific plugin-types', function() {
 			var inputMode = {
 				type: 'InputMode',
 				func: function() { return undefined; }
@@ -71,6 +71,29 @@ describe('the plugin manager', function() {
 			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(inputMode) {
 				expect(inputMode().length).toEqual(2);
 			}));
+		});
+
+		it('should default mode plugins for specific plugin-types', function() {
+			var hasDefaultMode = {
+				type: 'HasDefaultMode',
+				func: function() { return 1; }
+			};
+			var noDefaultMode = {
+				type: 'NoDefaultMode',
+				func: function() { return 2; }
+			};
+			pluginManager.load(hasDefaultMode);
+			pluginManager.load(noDefaultMode);
+
+			pluginManager.load(createAModuleToExecuteTest(['HasDefaultMode', 'NoDefaultMode'], function(hasDefaultModeDep, noDefaultModeDep) {
+				expect(hasDefaultModeDep()[0]).toEqual('*');
+				expect(hasDefaultModeDep()[1]).toEqual(1);
+				expect(noDefaultModeDep()).toEqual(2);
+			}));
+		});
+
+		it('should not care if no default plugin types are supplied', function() {
+			require('../src/plug-n-play').configure();
 		});
 
 		it('should defer all modules', function () {

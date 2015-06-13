@@ -3,8 +3,10 @@
 var loader = require('./folder-loader.js');
 var isArray = require('lodash').isArray;
 var each = require('lodash').each;
+var contains = require('lodash').contains;
 
 var plugins = {};
+var defaultModes = [];
 
 var get = function (name) {
   if (!plugins[name]) {
@@ -14,6 +16,7 @@ var get = function (name) {
   return plugins[name];
 };
 
+//jshint maxcomplexity:false
 var load = function (module) {
   module.deps = module.deps || [];
 
@@ -41,6 +44,12 @@ var load = function (module) {
     plugins[module.type].push(module.func.apply(this, args));
   } else {
     plugins[module.type] = module.func.apply(this, args);
+  }
+
+  if (contains(defaultModes, module.type)) {
+    if (!(plugins[module.type] instanceof Array)) {
+      plugins[module.type] = ['*', plugins[module.type]];
+    }
   }
 };
 
@@ -77,10 +86,15 @@ load({
 });
 
 module.exports = {
-  configure: function(arrays) {
+  configure: function(arrays, defaultMode) {
+    arrays = arrays || [];
+    defaultMode = defaultMode || [];
+
     each(arrays, function(name) {
       plugins[name] = [];
     });
+
+    defaultModes = defaultMode;
 
     return {
       load: load,
