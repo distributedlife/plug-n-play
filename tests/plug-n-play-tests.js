@@ -41,7 +41,7 @@ describe('the plugin manager', function() {
 
 	describe('using a module', function() {
 		beforeEach(function () {
-			pluginManager = require('../src/plug-n-play').configure(['InputMode'], ['HasDefaultMode', 'InputMode']);
+			pluginManager = require('../src/plug-n-play').configure(['InputMode'], ['HasDefaultMode', 'InputMode', 'AlsoADefaultMode']);
 		});
 
 		it('should have it\'s dependencies injected as parameters', function() {
@@ -79,17 +79,24 @@ describe('the plugin manager', function() {
 				type: 'HasDefaultMode',
 				func: function() { return 1; }
 			};
+			var hasCustomMode = {
+				type: 'AlsoADefaultMode',
+				func: function() { return ['my-mode', 3]; }
+			};
 			var noDefaultMode = {
 				type: 'NoDefaultMode',
 				func: function() { return 2; }
 			};
 			pluginManager.load(hasDefaultMode);
+			pluginManager.load(hasCustomMode);
 			pluginManager.load(noDefaultMode);
 
-			pluginManager.load(createAModuleToExecuteTest(['HasDefaultMode', 'NoDefaultMode'], function(hasDefaultModeDep, noDefaultModeDep) {
+			pluginManager.load(createAModuleToExecuteTest(['HasDefaultMode', 'NoDefaultMode', 'AlsoADefaultMode'], function(hasDefaultModeDep, noDefaultModeDep, hasCustomModeDep) {
 				expect(hasDefaultModeDep()[0]).toEqual('*');
 				expect(hasDefaultModeDep()[1]).toEqual(1);
 				expect(noDefaultModeDep()).toEqual(2);
+				expect(hasCustomModeDep()[0]).toEqual('my-mode');
+				expect(hasCustomModeDep()[1]).toEqual(3);
 			}));
 		});
 
@@ -103,6 +110,21 @@ describe('the plugin manager', function() {
 			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(defaultModeArray) {
 				each(defaultModeArray(), function(dep) {
 					expect(dep[0]).toEqual('*');
+					expect(dep[1]).toEqual(1);
+				});
+			}));
+		});
+
+		it('should support custom-mode plugins that are also arrays', function() {
+			var defaultModeArray = {
+				type: 'InputMode',
+				func: function() { return ['my-mode', 1]; }
+			};
+			pluginManager.load(defaultModeArray);
+
+			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(defaultModeArray) {
+				each(defaultModeArray(), function(dep) {
+					expect(dep[0]).toEqual('my-mode');
 					expect(dep[1]).toEqual(1);
 				});
 			}));

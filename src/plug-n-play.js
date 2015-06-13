@@ -40,18 +40,18 @@ var load = function (module) {
     args.push(deferredDependency(dep));
   }
 
+  var preparedPlugin = module.func.apply(this, args);
+
+  if (contains(defaultModes, module.type)) {
+    if (!(preparedPlugin instanceof Array)) {
+      preparedPlugin = ['*', preparedPlugin];
+    }
+  }
+
   if (isArray(plugins[module.type])) {
-    if (contains(defaultModes, module.type)) {
-      plugins[module.type].push(['*', module.func.apply(this, args)]);
-    } else {
-      plugins[module.type].push(module.func.apply(this, args));
-    }
+    plugins[module.type].push(preparedPlugin);
   } else {
-    if (contains(defaultModes, module.type)) {
-      plugins[module.type] = ['*', module.func.apply(this, args)];
-    } else {
-      plugins[module.type] = module.func.apply(this, args);
-    }
+    plugins[module.type] = preparedPlugin;
   }
 };
 
