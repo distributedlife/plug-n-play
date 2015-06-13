@@ -1,6 +1,7 @@
 'use strict';
 
 var expect = require('expect');
+var each = require('lodash').each;
 var jsdom = require('jsdom').jsdom;
 
 describe('the plugin manager', function() {
@@ -40,7 +41,7 @@ describe('the plugin manager', function() {
 
 	describe('using a module', function() {
 		beforeEach(function () {
-			pluginManager = require('../src/plug-n-play').configure(['InputMode'], 'HasDefaultMode');
+			pluginManager = require('../src/plug-n-play').configure(['InputMode'], ['HasDefaultMode', 'InputMode']);
 		});
 
 		it('should have it\'s dependencies injected as parameters', function() {
@@ -89,6 +90,21 @@ describe('the plugin manager', function() {
 				expect(hasDefaultModeDep()[0]).toEqual('*');
 				expect(hasDefaultModeDep()[1]).toEqual(1);
 				expect(noDefaultModeDep()).toEqual(2);
+			}));
+		});
+
+		it('should default mode plugins that are also arrays', function() {
+			var defaultModeArray = {
+				type: 'InputMode',
+				func: function() { return 1; }
+			};
+			pluginManager.load(defaultModeArray);
+
+			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(defaultModeArray) {
+				each(defaultModeArray(), function(dep) {
+					expect(dep[0]).toEqual('*');
+					expect(dep[1]).toEqual(1);
+				});
 			}));
 		});
 

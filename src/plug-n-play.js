@@ -41,14 +41,16 @@ var load = function (module) {
   }
 
   if (isArray(plugins[module.type])) {
-    plugins[module.type].push(module.func.apply(this, args));
+    if (contains(defaultModes, module.type)) {
+      plugins[module.type].push(['*', module.func.apply(this, args)]);
+    } else {
+      plugins[module.type].push(module.func.apply(this, args));
+    }
   } else {
-    plugins[module.type] = module.func.apply(this, args);
-  }
-
-  if (contains(defaultModes, module.type)) {
-    if (!(plugins[module.type] instanceof Array)) {
-      plugins[module.type] = ['*', plugins[module.type]];
+    if (contains(defaultModes, module.type)) {
+      plugins[module.type] = ['*', module.func.apply(this, args)];
+    } else {
+      plugins[module.type] = module.func.apply(this, args);
     }
   }
 };
