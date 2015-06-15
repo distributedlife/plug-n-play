@@ -44,7 +44,11 @@ var load = function (module) {
 
   if (contains(defaultModes, module.type)) {
     if (!(preparedPlugin instanceof Array)) {
-      preparedPlugin = ['*', preparedPlugin];
+      preparedPlugin = [['*'], preparedPlugin];
+    } else {
+      if (!(preparedPlugin[0] instanceof Array)) {
+        preparedPlugin = [[preparedPlugin[0]], preparedPlugin[1]];
+      }
     }
   }
 

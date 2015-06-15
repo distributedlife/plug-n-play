@@ -92,10 +92,10 @@ describe('the plugin manager', function() {
 			pluginManager.load(noDefaultMode);
 
 			pluginManager.load(createAModuleToExecuteTest(['HasDefaultMode', 'NoDefaultMode', 'AlsoADefaultMode'], function(hasDefaultModeDep, noDefaultModeDep, hasCustomModeDep) {
-				expect(hasDefaultModeDep()[0]).toEqual('*');
+				expect(hasDefaultModeDep()[0]).toEqual(['*']);
 				expect(hasDefaultModeDep()[1]).toEqual(1);
 				expect(noDefaultModeDep()).toEqual(2);
-				expect(hasCustomModeDep()[0]).toEqual('my-mode');
+				expect(hasCustomModeDep()[0]).toEqual(['my-mode']);
 				expect(hasCustomModeDep()[1]).toEqual(3);
 			}));
 		});
@@ -109,7 +109,7 @@ describe('the plugin manager', function() {
 
 			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(defaultModeArray) {
 				each(defaultModeArray(), function(dep) {
-					expect(dep[0]).toEqual('*');
+					expect(dep[0]).toEqual(['*']);
 					expect(dep[1]).toEqual(1);
 				});
 			}));
@@ -124,7 +124,22 @@ describe('the plugin manager', function() {
 
 			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(defaultModeArray) {
 				each(defaultModeArray(), function(dep) {
-					expect(dep[0]).toEqual('my-mode');
+					expect(dep[0]).toEqual(['my-mode']);
+					expect(dep[1]).toEqual(1);
+				});
+			}));
+		});
+
+		it('should support custom-mode plugins that apply to multiple game modes', function() {
+			var defaultModeArray = {
+				type: 'InputMode',
+				func: function() { return [['my-mode', 'other-mode'], 1]; }
+			};
+			pluginManager.load(defaultModeArray);
+
+			pluginManager.load(createAModuleToExecuteTest(['InputMode'], function(defaultModeArray) {
+				each(defaultModeArray(), function(dep) {
+					expect(dep[0]).toEqual(['my-mode', 'other-mode']);
 					expect(dep[1]).toEqual(1);
 				});
 			}));
