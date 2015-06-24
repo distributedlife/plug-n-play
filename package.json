@@ -40,6 +40,8 @@
     "sinon": "^1.14.1"
   },
   "dependencies": {
+    "app-root-path": "^1.0.0",
+    "bunyan": "^1.4.0",
     "lodash": "^3.6.0"
   }
 }

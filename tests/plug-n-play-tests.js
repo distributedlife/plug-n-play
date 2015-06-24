@@ -1,6 +1,7 @@
 'use strict';
 
 var expect = require('expect');
+var sinon = require('sinon');
 var each = require('lodash').each;
 var jsdom = require('jsdom').jsdom;
 
@@ -29,6 +30,37 @@ describe('the plugin manager', function() {
 			return dep();
 		}
 	};
+	var myModuleReturnFunction = {
+		type: 'RetFunction',
+		func: function() {
+			function RetFunction () {
+				return 54;
+			}
+
+			return RetFunction;
+		}
+	};
+	var myModuleReturnAnonymousFunction = {
+		type: 'RetAnonymousFunction',
+		func: function() {
+			return function () {
+				return 55;
+			};
+		}
+	};
+	var myModuleReturnsObject = {
+		type: 'RetObject',
+		func: function() {
+			function f () {
+				return 234;
+			}
+
+			return {
+				value: 345345,
+				f: f
+			};
+		}
+	};
 
 	var createAModuleToExecuteTest = function(deps, vaidationCode) {
 		return {
@@ -38,10 +70,41 @@ describe('the plugin manager', function() {
 		};
 	};
 	var pluginManager;
+	var log = require('../src/logger.js');
+	log.loaded = sinon.spy();
+	log.plugin = sinon.spy();
 
-	describe('using a module', function() {
+	describe('using a plugin', function() {
 		beforeEach(function () {
 			pluginManager = require('../src/plug-n-play').configure(['InputMode'], ['HasDefaultMode', 'InputMode', 'AlsoADefaultMode']);
+
+			log.loaded.reset();
+			log.plugin.reset();
+		});
+
+		it('should a plugin being loaded', function () {
+			pluginManager.load(myModuleReturnFunction);
+
+			expect(log.loaded.firstCall.args).toEqual(['RetFunction']);
+		});
+
+		it('should report when a plugin\'s functions are executed', function () {
+			pluginManager.load(myModuleReturnFunction);
+			pluginManager.get('RetFunction')();
+			expect(log.plugin.firstCall.args[1]).toEqual('RetFunction');
+			expect(log.plugin.firstCall.args[2]).toEqual('function RetFunction() {\n\t\t\t\treturn 54;\n\t\t\t}');
+
+			log.plugin.reset();
+			pluginManager.load(myModuleReturnsObject);
+			pluginManager.get('RetObject').f();
+			expect(log.plugin.firstCall.args[1]).toEqual('RetObject');
+			expect(log.plugin.firstCall.args[2]).toEqual('function f() {\n\t\t\t\treturn 234;\n\t\t\t}');
+
+			log.plugin.reset();
+			pluginManager.load(myModuleReturnAnonymousFunction);
+			pluginManager.get('RetAnonymousFunction')();
+			expect(log.plugin.firstCall.args[1]).toEqual('RetAnonymousFunction');
+			expect(log.plugin.firstCall.args[2]).toEqual('function () {\n\t\t\t\treturn 55;\n\t\t\t}');
 		});
 
 		it('should have it\'s dependencies injected as parameters', function() {
@@ -230,8 +293,8 @@ describe('the plugin manager', function() {
 		});
 	});
 
-	describe('getting a module', function() {
-		it('should return the module set by the developer', function() {
+	describe('getting a plugin', function() {
+		it('should return the plugin set by the developer', function() {
 			expect(pluginManager.get('AlsoMine')).toEqual(4);
 		});
 	});

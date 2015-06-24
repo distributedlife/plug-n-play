@@ -4,6 +4,7 @@ var loader = require('./folder-loader.js');
 var isArray = require('lodash').isArray;
 var each = require('lodash').each;
 var contains = require('lodash').contains;
+var log = require('./logger.js');
 
 var plugins = {};
 var defaultModes = [];
@@ -18,6 +19,8 @@ var get = function (name) {
 
 //jshint maxcomplexity:false
 var load = function (module) {
+  log.loaded(module.type);
+
   module.deps = module.deps || [];
 
   var args = [];
@@ -40,17 +43,50 @@ var load = function (module) {
     args.push(deferredDependency(dep));
   }
 
-  var preparedPlugin = module.func.apply(this, args);
+  var wrapOriginalFunction = function(original) {
+    return function () {
+      log.plugin(arguments, module.type, original.toString());
 
-  if (contains(defaultModes, module.type)) {
-    if (!(preparedPlugin instanceof Array)) {
-      preparedPlugin = [['*'], preparedPlugin];
-    } else {
-      if (!(preparedPlugin[0] instanceof Array)) {
-        preparedPlugin = [[preparedPlugin[0]], preparedPlugin[1]];
+      return original.apply(arguments);
+    };
+  };
+
+  function addLoggingToPlugin (func) {
+    var plugin = func.apply(undefined, args);
+
+    if (plugin instanceof Function) {
+      return wrapOriginalFunction(plugin);
+    }
+    if (plugin instanceof Array) {
+      return plugin;
+    }
+    if (!(plugin instanceof Object)) {
+      return plugin;
+    }
+    for (var key in plugin) {
+      if (plugin[key] instanceof Function) {
+        plugin[key] = wrapOriginalFunction(plugin[key]);
       }
     }
+
+    return plugin;
   }
+
+  function setModesForPlugin (plugin) {
+    if (!contains(defaultModes, module.type)) {
+      return plugin;
+    }
+    if (!(plugin instanceof Array)) {
+      return [['*'], plugin];
+    }
+    if (!(plugin[0] instanceof Array)) {
+      return [[plugin[0]], plugin[1]];
+    }
+
+    return plugin;
+  }
+
+  var preparedPlugin = setModesForPlugin(addLoggingToPlugin(module.func));
 
   if (isArray(plugins[module.type])) {
     plugins[module.type].push(preparedPlugin);
