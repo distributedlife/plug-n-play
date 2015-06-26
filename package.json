@@ -1,6 +1,6 @@
 {
   "name": "plug-n-play",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "A plugin system built around the concept of roles",
   "main": "src/plug-n-play.js",
   "directories": {
