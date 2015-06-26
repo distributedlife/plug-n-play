@@ -33,11 +33,11 @@ describe('the plugin manager', function() {
 	var myModuleReturnFunction = {
 		type: 'RetFunction',
 		func: function() {
-			function RetFunction () {
+			function retFunction () {
 				return 54;
 			}
 
-			return RetFunction;
+			return retFunction;
 		}
 	};
 	var myModuleReturnAnonymousFunction = {
@@ -61,6 +61,14 @@ describe('the plugin manager', function() {
 			};
 		}
 	};
+	var myModuleReturnModedFunction = {
+		type: 'RetModedFunction',
+		func: function() {
+			return ['*', function () {
+				return 57;
+			}];
+		}
+	};
 
 	var createAModuleToExecuteTest = function(deps, vaidationCode) {
 		return {
@@ -70,13 +78,20 @@ describe('the plugin manager', function() {
 		};
 	};
 	var pluginManager;
-	var log = require('../src/logger.js');
-	log.loaded = sinon.spy();
-	log.plugin = sinon.spy();
+	var logging = require('ensemblejs-logging');
+	var log = {
+		loaded: sinon.spy(),
+		plugin: sinon.spy(),
+		subdue: sinon.spy(),
+		called: sinon.spy()
+	};
+	logging.setupLogger = function () {
+		return log;
+	};
 
 	describe('using a plugin', function() {
 		beforeEach(function () {
-			pluginManager = require('../src/plug-n-play').configure(['InputMode'], ['HasDefaultMode', 'InputMode', 'AlsoADefaultMode']);
+			pluginManager = require('../src/plug-n-play').configure(log, ['InputMode'], ['HasDefaultMode', 'InputMode', 'AlsoADefaultMode']);
 
 			log.loaded.reset();
 			log.plugin.reset();
@@ -85,26 +100,32 @@ describe('the plugin manager', function() {
 		it('should a plugin being loaded', function () {
 			pluginManager.load(myModuleReturnFunction);
 
-			expect(log.loaded.firstCall.args).toEqual(['RetFunction']);
+			expect(log.loaded.firstCall.args).toEqual(['ensemblejs::RetFunction']);
 		});
 
 		it('should report when a plugin\'s functions are executed', function () {
 			pluginManager.load(myModuleReturnFunction);
 			pluginManager.get('RetFunction')();
-			expect(log.plugin.firstCall.args[1]).toEqual('RetFunction');
-			expect(log.plugin.firstCall.args[2]).toEqual('function RetFunction() {\n\t\t\t\treturn 54;\n\t\t\t}');
+			expect(log.plugin.firstCall.args[1]).toEqual('ensemblejs:RetFunction');
+			expect(log.plugin.firstCall.args[2]).toEqual('function retFunction() {\n\t\t\t\treturn 54;\n\t\t\t}');
 
 			log.plugin.reset();
 			pluginManager.load(myModuleReturnsObject);
 			pluginManager.get('RetObject').f();
-			expect(log.plugin.firstCall.args[1]).toEqual('RetObject');
+			expect(log.plugin.firstCall.args[1]).toEqual('ensemblejs:RetObject');
 			expect(log.plugin.firstCall.args[2]).toEqual('function f() {\n\t\t\t\treturn 234;\n\t\t\t}');
 
 			log.plugin.reset();
 			pluginManager.load(myModuleReturnAnonymousFunction);
 			pluginManager.get('RetAnonymousFunction')();
-			expect(log.plugin.firstCall.args[1]).toEqual('RetAnonymousFunction');
+			expect(log.plugin.firstCall.args[1]).toEqual('ensemblejs:RetAnonymousFunction');
 			expect(log.plugin.firstCall.args[2]).toEqual('function () {\n\t\t\t\treturn 55;\n\t\t\t}');
+
+			log.plugin.reset();
+			pluginManager.load(myModuleReturnModedFunction);
+			pluginManager.get('RetModedFunction')[1]();
+			expect(log.plugin.firstCall.args[1]).toEqual('ensemblejs:RetModedFunction');
+			expect(log.plugin.firstCall.args[2]).toEqual('function () {\n\t\t\t\treturn 57;\n\t\t\t}');
 		});
 
 		it('should have it\'s dependencies injected as parameters', function() {
@@ -209,7 +230,7 @@ describe('the plugin manager', function() {
 		});
 
 		it('should not care if no default plugin types are supplied', function() {
-			require('../src/plug-n-play').configure();
+			require('../src/plug-n-play').configure('name', 'version');
 		});
 
 		it('should defer all modules', function () {
@@ -305,6 +326,15 @@ describe('the plugin manager', function() {
 
 			pluginManager.load(createAModuleToExecuteTest(['P'], function(p) {
 				expect(p()).toEqual(1);
+			}));
+		});
+	});
+
+	describe('DefinePlugin', function () {
+		it('allows you to define a plugin within the plugin system', function() {
+			pluginManager.load(createAModuleToExecuteTest(['DefinePlugin'], function(definePlugin) {
+				definePlugin()('RunTimeDefinedPlugin', function() { return 44; });
+				expect(pluginManager.get('RunTimeDefinedPlugin')).toEqual(44);
 			}));
 		});
 	});

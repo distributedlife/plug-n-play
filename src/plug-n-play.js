@@ -3,38 +3,41 @@
 var loader = require('./folder-loader.js');
 var isArray = require('lodash').isArray;
 var each = require('lodash').each;
+var map = require('lodash').map;
 var contains = require('lodash').contains;
-var log = require('./logger.js');
-
+var logging = require('ensemblejs-logging');
+var log;
 var plugins = {};
 var defaultModes = [];
+var traceOnly = [];
 
-var get = function (name) {
+function get (name) {
   if (!plugins[name]) {
     throw new Error('No plugin defined for: ' + name);
   }
 
   return plugins[name];
-};
+}
 
-//jshint maxcomplexity:false
-var load = function (module) {
-  log.loaded(module.type);
+function deferredDependency (deferred) {
+  return function () {
+    if (arguments.length > 0) {
+      throw new Error('Incorrect use of deferred dependency. You\'re probably going blah(p1, p2) when you should be going blah()(p1, p2).');
+    }
+
+    return get(deferred);
+  };
+}
+
+function load (module, prefix) {
+  prefix = prefix || 'ensemblejs';
+
+  log.loaded(prefix + '::' + module.type);
 
   module.deps = module.deps || [];
 
   var args = [];
   var i;
-
-  var deferredDependency = function (deferred) {
-    return function () {
-      if (arguments.length > 0) {
-        throw new Error('Incorrect use of deferred dependency. You\'re probably going blah(p1, p2) when you should be going blah()(p1, p2).');
-      }
-
-      return get(deferred);
-    };
-  };
 
   var dep;
   for (i = 0; i < module.deps.length; i += 1) {
@@ -43,33 +46,52 @@ var load = function (module) {
     args.push(deferredDependency(dep));
   }
 
-  var wrapOriginalFunction = function(original) {
+  function wrapOriginalFunction (original) {
     return function () {
-      log.plugin(arguments, module.type, original.toString());
+      if (contains(traceOnly, module.type)) {
+        log.subdue(arguments, prefix + ':' + module.type, original.toString());
+      } else {
+        log.plugin(arguments, prefix + ':' + module.type, original.toString());
+      }
 
-      return original.apply(arguments);
+      return original.apply(this, arguments);
     };
-  };
+  }
+
+  function wrapEachElementOfArray (array) {
+    return map(array, function (element) {
+      if (element instanceof Function) {
+        return wrapOriginalFunction(element);
+      } else {
+        return element;
+      }
+    });
+  }
+
+  function wrapEachFunctionInObject (obj) {
+    for (var key in obj) {
+      if (obj[key] instanceof Function) {
+        obj[key] = wrapOriginalFunction(obj[key]);
+      }
+    }
+
+    return obj;
+  }
 
   function addLoggingToPlugin (func) {
-    var plugin = func.apply(undefined, args);
+    var plugin = func.apply(this, args);
 
     if (plugin instanceof Function) {
       return wrapOriginalFunction(plugin);
     }
     if (plugin instanceof Array) {
-      return plugin;
+      return wrapEachElementOfArray(plugin);
     }
     if (!(plugin instanceof Object)) {
       return plugin;
+    } else {
+      return wrapEachFunctionInObject(plugin);
     }
-    for (var key in plugin) {
-      if (plugin[key] instanceof Function) {
-        plugin[key] = wrapOriginalFunction(plugin[key]);
-      }
-    }
-
-    return plugin;
   }
 
   function setModesForPlugin (plugin) {
@@ -93,17 +115,17 @@ var load = function (module) {
   } else {
     plugins[module.type] = preparedPlugin;
   }
-};
+}
 
-var loadPath = function (path) {
+function loadGameDevCode (path) {
   loader.loadFromPath(path, load);
-};
+}
 
-var set = function (name, thing) {
+function set (name, thing) {
   plugins[name] = thing;
-};
+}
 
-var define = function (type, deps, func) {
+function define (type, deps, func) {
   if (deps instanceof Function) {
     return {
       type: type,
@@ -116,33 +138,49 @@ var define = function (type, deps, func) {
       func: func
     };
   }
-};
+}
 
-load({
-  type: 'DefinePlugin',
-  func: function () {
-    return function (type, deps, func) {
-      load(define(type, deps, func));
-    };
-  }
-});
+function loadDefinedPlugin (type, deps, func) {
+  load(define(type, deps, func));
+}
+
+function DefinePlugin () {
+  return loadDefinedPlugin;
+}
+
+function configure (logger, arrays, defaultMode, traceOnlyPlugins) {
+  log = logging.setupLogger(logger);
+
+  arrays = arrays || [];
+  defaultMode = defaultMode || [];
+  traceOnlyPlugins = traceOnlyPlugins || [];
+
+  each(arrays, function(name) {
+    plugins[name] = [];
+  });
+
+  defaultModes = defaultMode;
+  traceOnly = traceOnlyPlugins;
+
+  load({
+    type: 'DefinePlugin',
+    func: DefinePlugin
+  });
+  // load({
+  //   type: 'Logger',
+  //   func: function () {
+  //     return log;
+  //   }
+  // });
+
+  return {
+    load: load,
+    loadPath: loadGameDevCode,
+    set: set,
+    get: get
+  };
+}
 
 module.exports = {
-  configure: function(arrays, defaultMode) {
-    arrays = arrays || [];
-    defaultMode = defaultMode || [];
-
-    each(arrays, function(name) {
-      plugins[name] = [];
-    });
-
-    defaultModes = defaultMode;
-
-    return {
-      load: load,
-      loadPath: loadPath,
-      set: set,
-      get: get
-    };
-  }
+  configure: configure
 };
