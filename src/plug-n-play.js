@@ -162,16 +162,12 @@ function configure (logger, arrays, defaultMode, traceOnlyPlugins) {
   defaultModes = defaultMode;
   traceOnly = traceOnlyPlugins;
 
+  plugins.Logger = log;
+
   load({
     type: 'DefinePlugin',
     func: DefinePlugin
   });
-  // load({
-  //   type: 'Logger',
-  //   func: function () {
-  //     return log;
-  //   }
-  // });
 
   return {
     load: load,

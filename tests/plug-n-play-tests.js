@@ -258,6 +258,12 @@ describe('the plugin manager', function() {
 			}));
 		});
 
+		it('should work for the seeded logger', function () {
+			pluginManager.load(createAModuleToExecuteTest(['Logger'], function(logger) {
+				expect(logger()).toEqual(log);
+			}));
+		});
+
 		it('should raise an exception if a dependency is used during the load phase', function () {
 			var now = {
 				deps: ['OkNow'],
