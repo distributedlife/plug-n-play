@@ -19,6 +19,10 @@ function get (name) {
   return plugins[name];
 }
 
+function getIfExists (name) {
+  return plugins[name];
+}
+
 function deferredDependency (deferred) {
   return function () {
     if (arguments.length > 0) {
@@ -32,7 +36,7 @@ function deferredDependency (deferred) {
 function load (module, prefix) {
   prefix = prefix || 'ensemblejs';
 
-  log.loaded(prefix + '::' + module.type);
+  log.loaded(prefix + ':' + module.type);
 
   module.deps = module.deps || [];
 
@@ -46,7 +50,20 @@ function load (module, prefix) {
     args.push(deferredDependency(dep));
   }
 
-  function wrapOriginalFunction (original) {
+  function createTimer (prefix, plugin, func) {
+    var profiler = getIfExists('Profiler');
+
+    if (profiler) {
+      func = func || 'anonymous';
+      return profiler.timer(prefix, plugin, func, 100);
+    } else {
+      return undefined;
+    }
+  }
+
+  function wrapOriginalFunction (original, key) {
+    var timer = createTimer(prefix, module.type, key);
+
     return function () {
       if (contains(traceOnly, module.type)) {
         log.subdue(arguments, prefix + ':' + module.type, original.toString());
@@ -54,7 +71,14 @@ function load (module, prefix) {
         log.plugin(arguments, prefix + ':' + module.type, original.toString());
       }
 
-      return original.apply(this, arguments);
+      if (timer) {
+        timer.fromHere();
+        var result = original.apply(this, arguments);
+        timer.toHere();
+        return result;
+      } else {
+        return original.apply(this, arguments);
+      }
     };
   }
 
@@ -71,7 +95,7 @@ function load (module, prefix) {
   function wrapEachFunctionInObject (obj) {
     for (var key in obj) {
       if (obj[key] instanceof Function) {
-        obj[key] = wrapOriginalFunction(obj[key]);
+        obj[key] = wrapOriginalFunction(obj[key], key);
       }
     }
 
@@ -140,14 +164,6 @@ function define (type, deps, func) {
   }
 }
 
-function loadDefinedPlugin (type, deps, func) {
-  load(define(type, deps, func));
-}
-
-function DefinePlugin () {
-  return loadDefinedPlugin;
-}
-
 function configure (logger, arrays, defaultMode, traceOnlyPlugins) {
   log = logging.setupLogger(logger);
 
@@ -166,7 +182,11 @@ function configure (logger, arrays, defaultMode, traceOnlyPlugins) {
 
   load({
     type: 'DefinePlugin',
-    func: DefinePlugin
+    func: function DefinePlugin () {
+      return function loadDefinedPlugin (type, deps, func) {
+        load(define(type, deps, func));
+      };
+    }
   });
 
   return {
